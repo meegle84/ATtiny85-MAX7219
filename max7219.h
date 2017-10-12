@@ -14,10 +14,12 @@
 #define CMD_SHUTDOWN    12
 #define CMD_DISPLAYTEST 15
 
-byte scr[NUM_MAX*8 + 8]; // +8 for scrolled char
+#include "font.h"
 
-void sendCmd(int addr, byte cmd, byte data)
-{
+byte scr[NUM_MAX*8 + 8]; // +8 for scrolled char
+const uint8_t *fnt = cp437_font;
+
+void sendCmd(int addr, byte cmd, byte data) {
   digitalWrite(CS_PIN, LOW);
   for (int i = NUM_MAX-1; i>=0; i--) {
     shiftOut(DIN_PIN, CLK_PIN, MSBFIRST, i==addr ? cmd : 0);
@@ -26,8 +28,7 @@ void sendCmd(int addr, byte cmd, byte data)
   digitalWrite(CS_PIN, HIGH);
 }
 
-void sendCmdAll(byte cmd, byte data)
-{
+void sendCmdAll(byte cmd, byte data) {
   digitalWrite(CS_PIN, LOW);
   for (int i = NUM_MAX-1; i>=0; i--) {
     shiftOut(DIN_PIN, CLK_PIN, MSBFIRST, cmd);
@@ -52,23 +53,50 @@ void refreshAll() {
  }
 }
 
-void clr()
-{
+void clr() {
   for (int i = 0; i < NUM_MAX*8; i++) scr[i] = 0;
 }
 
-void scrollLeft()
-{
+void scrollLeft() {
   for(int i=0; i < NUM_MAX*8+7; i++) scr[i] = scr[i+1];
 }
 
-void invert()
-{
+void scrollRight() {
+  for(int i=0; i < NUM_MAX*8+7; i++) scr[i] = scr[i-1];
+}
+
+void invert() {
   for (int i = 0; i < NUM_MAX*8; i++) scr[i] = ~scr[i];
 }
 
-void initMAX7219()
-{
+int showChar(char ch, const uint8_t *data) {
+  int count = 0;
+  for (int i = 0; i < 7; i++) {
+    scr[NUM_MAX*8 + i] = pgm_read_byte(data + ch * 8 + i);
+    if(scr[NUM_MAX*8 + i] > 0x00)
+      count++;
+  }
+  return count;
+}
+
+void printCharWithShift(unsigned char c, int shift_speed) {
+  int w = showChar(c, fnt);
+  for (int i=0; i<w+1; i++) {
+    delay(shift_speed);
+    scrollLeft();
+    //scrollRight();
+    refreshAll();
+  }
+}
+
+void printStringWithShift(char* s, int shift_speed) {
+  while (*s) {
+    printCharWithShift(*s, shift_speed);
+    s++;
+  }
+}
+
+void initMAX7219() {
   pinMode(DIN_PIN, OUTPUT);
   pinMode(CLK_PIN, OUTPUT);
   pinMode(CS_PIN, OUTPUT);
@@ -81,6 +109,3 @@ void initMAX7219()
   clr();
   refreshAll();
 }
-
-
-
